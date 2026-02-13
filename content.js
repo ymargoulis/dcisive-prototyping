@@ -16,6 +16,31 @@
   let actionBar = null;
   let observer = null;
 
+  // ─── Rate-limited badge check queue ────────────────────────────────
+  const badgeQueue = [];
+  let badgeQueueRunning = false;
+  const BADGE_DELAY_MS = 300; // delay between API calls to avoid 429
+
+  function enqueueBadgeCheck(filename, clickable) {
+    badgeQueue.push({ filename, clickable });
+    if (!badgeQueueRunning) processBadgeQueue();
+  }
+
+  async function processBadgeQueue() {
+    if (badgeQueueRunning) return;
+    badgeQueueRunning = true;
+
+    while (badgeQueue.length > 0) {
+      const { filename, clickable } = badgeQueue.shift();
+      await checkJobFolderStatus(filename, clickable);
+      if (badgeQueue.length > 0) {
+        await new Promise((r) => setTimeout(r, BADGE_DELAY_MS));
+      }
+    }
+
+    badgeQueueRunning = false;
+  }
+
   // ─── API helper — routes through background service worker ─────────
   function apiCall(action, data) {
     return new Promise((resolve, reject) => {
@@ -110,8 +135,8 @@
 
       clickable.appendChild(checkbox);
 
-      // Async: check if file is already in a Job Folder
-      checkJobFolderStatus(filename, clickable);
+      // Queue badge check (rate-limited to avoid 429)
+      enqueueBadgeCheck(filename, clickable);
     });
   }
 
@@ -316,6 +341,11 @@
           if (refreshed) fileCache.set(filename, refreshed);
         } else {
           errorCount++;
+        }
+
+        // Small delay between files to avoid 429 rate limiting
+        if (i < filenames.length - 1) {
+          await new Promise((r) => setTimeout(r, 500));
         }
       } catch (err) {
         console.error(`[Dcisive Ext] Error tagging ${filename}:`, err);

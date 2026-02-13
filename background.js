@@ -7,6 +7,7 @@
  */
 
 const API_BASE = 'https://api.au.dcisive.io';
+const MAX_RETRIES = 3;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type !== 'API_REQUEST') return false;
@@ -17,6 +18,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   return true; // Keep the message channel open for async response
 });
+
+// ─── Retry helper for 429 rate limiting ──────────────────────────────
+async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const resp = await fetch(url, options);
+
+    if (resp.status === 429 && attempt < retries) {
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = Math.pow(2, attempt) * 1000;
+      console.log(`[Dcisive Ext BG] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
+      await new Promise((r) => setTimeout(r, delay));
+      continue;
+    }
+
+    return resp;
+  }
+}
 
 async function handleApiRequest(msg) {
   const { action, token } = msg;
@@ -36,7 +54,7 @@ async function handleApiRequest(msg) {
 }
 
 async function searchFiles(filename, token) {
-  const resp = await fetch(
+  const resp = await fetchWithRetry(
     `${API_BASE}/v1/files/search?query=${encodeURIComponent(filename)}&limit=10`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
@@ -84,7 +102,7 @@ async function updateFile(fileId, fileData, newTag, token) {
 
   body += `--${boundary}--\r\n`;
 
-  const resp = await fetch(`${API_BASE}/v1/files/${fileId}`, {
+  const resp = await fetchWithRetry(`${API_BASE}/v1/files/${fileId}`, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
