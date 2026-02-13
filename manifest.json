@@ -5,6 +5,9 @@
   "description": "Multi-select and bulk tagging overlay for Dcisive gallery",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["*://api.au.dcisive.io/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["*://demo.au.dcisive.io/*"],

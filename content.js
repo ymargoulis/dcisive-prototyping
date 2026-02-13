@@ -3,13 +3,11 @@
  *
  * Injected into demo.au.dcisive.io pages.
  * Adds multi-select checkboxes to gallery file cards and a floating action bar
- * for bulk tagging operations.
+ * for bulk "Add to Job Folder" operations.
  */
 
 (() => {
   'use strict';
-
-  const API_BASE = 'https://api.au.dcisive.io';
 
   // ─── State ──────────────────────────────────────────────────────────
   let token = null;
@@ -17,6 +15,21 @@
   const fileCache = new Map(); // filename → file API response
   let actionBar = null;
   let observer = null;
+
+  // ─── API helper — routes through background service worker ─────────
+  function apiCall(action, data) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ type: 'API_REQUEST', action, ...data }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else if (response.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve(response);
+        }
+      });
+    });
+  }
 
   // ─── Init ───────────────────────────────────────────────────────────
   async function init() {
@@ -119,13 +132,6 @@
     bar.innerHTML = `
       <span class="dcisive-ext-count">0 files selected</span>
       <div class="dcisive-ext-actions">
-        <button class="dcisive-ext-btn dcisive-ext-btn-tag" data-action="tag">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-            <line x1="7" y1="7" x2="7.01" y2="7"/>
-          </svg>
-          Add Tag
-        </button>
         <button class="dcisive-ext-btn dcisive-ext-btn-jf" data-action="jobfolder">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
@@ -138,7 +144,6 @@
       </div>
     `;
 
-    bar.querySelector('[data-action="tag"]').addEventListener('click', () => showTagModal());
     bar.querySelector('[data-action="jobfolder"]').addEventListener('click', () => showJobFolderModal());
     bar.querySelector('[data-action="clear"]').addEventListener('click', () => clearSelection());
 
@@ -167,36 +172,6 @@
   }
 
   // ─── Modals ─────────────────────────────────────────────────────────
-  function showTagModal() {
-    const modal = createModal('Add Tag', `
-      <div class="dcisive-ext-form-group">
-        <label>Tag Key</label>
-        <input type="text" id="dcisive-ext-tag-key" placeholder="e.g. JobFolder.Number" />
-      </div>
-      <div class="dcisive-ext-form-group">
-        <label>Tag Value</label>
-        <input type="text" id="dcisive-ext-tag-value" placeholder="e.g. JF10001" />
-      </div>
-      <div class="dcisive-ext-form-group">
-        <label>Tag Type</label>
-        <select id="dcisive-ext-tag-type">
-          <option value="string">String</option>
-          <option value="number">Number</option>
-          <option value="datetime">DateTime</option>
-          <option value="boolean">Boolean</option>
-        </select>
-      </div>
-    `, async () => {
-      const key = document.getElementById('dcisive-ext-tag-key').value.trim();
-      const value = document.getElementById('dcisive-ext-tag-value').value.trim();
-      const type = document.getElementById('dcisive-ext-tag-type').value;
-      if (!key || !value) return showToast('Please fill in both key and value', 'error');
-      await bulkAddTag(key, value, type);
-    });
-    document.body.appendChild(modal);
-    document.getElementById('dcisive-ext-tag-key').focus();
-  }
-
   function showJobFolderModal() {
     const modal = createModal('Add to Job Folder', `
       <div class="dcisive-ext-form-group">
@@ -339,67 +314,43 @@
     return tag;
   }
 
-  // ─── API Calls ──────────────────────────────────────────────────────
+  // ─── API Calls (via background service worker) ─────────────────────
   async function resolveFile(filename) {
-    const resp = await fetch(
-      `${API_BASE}/v1/files/search?query=${encodeURIComponent(filename)}&limit=10`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    try {
+      const result = await apiCall('searchFiles', { filename, token });
+      if (result.expired) {
+        showToast('Token expired. Please update it in the extension popup.', 'error');
+        return null;
+      }
+      const files = result.files || [];
 
-    if (resp.status === 401) {
-      showToast('Token expired. Please update it in the extension popup.', 'error');
+      // Exact match by filename or title
+      return (
+        files.find((f) => f.filename === filename) ||
+        files.find((f) => f.title === filename) ||
+        // Partial match: the gallery truncates long names with "..."
+        files.find((f) => (f.filename || '').startsWith(filename.replace(/\.{3}$/, ''))) ||
+        files.find((f) => (f.title || '').startsWith(filename.replace(/\.{3}$/, ''))) ||
+        null
+      );
+    } catch (err) {
+      console.error('[Dcisive Ext] Search error:', err);
       return null;
     }
-
-    if (!resp.ok) return null;
-
-    const data = await resp.json();
-    const files = data.data || [];
-
-    // Exact match by filename or title
-    return (
-      files.find((f) => f.filename === filename) ||
-      files.find((f) => f.title === filename) ||
-      // Partial match: the gallery truncates long names with "..."
-      files.find((f) => (f.filename || '').startsWith(filename.replace(/\.{3}$/, ''))) ||
-      files.find((f) => (f.title || '').startsWith(filename.replace(/\.{3}$/, ''))) ||
-      null
-    );
   }
 
   async function updateFileTags(fileId, fileData, newTag) {
-    // Merge: keep existing tags, replace if same key exists
-    const tags = (fileData.tags || []).filter((t) => t.key !== newTag.key);
-    tags.push(newTag);
-
-    const fd = new FormData();
-    fd.append('Title', fileData.title || fileData.filename || 'Untitled');
-    fd.append('Filename', fileData.filename || '');
-    fd.append('StorageId', String(fileData.storageId || 1));
-    fd.append('StorageLocation', fileData.storageLocation || '');
-    fd.append('FileUpdatedDate', new Date().toISOString());
-    fd.append('FileUpdatedBy', 'Dcisive Prototyping');
-
-    tags.forEach((t, i) => {
-      fd.append(`Tags[${i}][key]`, t.key);
-      fd.append(`Tags[${i}][source]`, t.source || 'user');
-      if (t.dateTimeValue != null) fd.append(`Tags[${i}][dateTimeValue]`, t.dateTimeValue);
-      else if (t.doubleValue != null) fd.append(`Tags[${i}][doubleValue]`, String(t.doubleValue));
-      else if (t.boolValue != null) fd.append(`Tags[${i}][boolValue]`, String(t.boolValue));
-      else if (t.stringValue != null) fd.append(`Tags[${i}][stringValue]`, t.stringValue);
-    });
-
-    const resp = await fetch(`${API_BASE}/v1/files/${fileId}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    });
-
-    if (resp.status === 401) {
-      showToast('Token expired. Please update it in the extension popup.', 'error');
+    try {
+      const result = await apiCall('updateFile', { fileId, fileData, newTag, token });
+      if (result.expired) {
+        showToast('Token expired. Please update it in the extension popup.', 'error');
+        return false;
+      }
+      return result.ok;
+    } catch (err) {
+      console.error('[Dcisive Ext] Update error:', err);
+      return false;
     }
-
-    return resp.ok;
   }
 
   // ─── Toast Notifications ────────────────────────────────────────────
