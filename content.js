@@ -288,12 +288,31 @@
     }
 
     if (errorCount === 0) {
-      showToast(`Tagged ${successCount} files with ${key} = ${value}`, 'success');
+      showToast(`Tagged ${successCount} files with ${key} = ${value}. Refreshing...`, 'success');
     } else {
       showToast(`Tagged ${successCount} files, ${errorCount} failed`, 'error');
     }
 
     clearSelection();
+
+    // Refresh the Dcisive gallery to reflect changes
+    if (successCount > 0) {
+      setTimeout(() => refreshGallery(), 1500);
+    }
+  }
+
+  function refreshGallery() {
+    // Get the current search query from the search bar
+    const searchInput = document.querySelector('input[placeholder="Search"]');
+    const query = searchInput?.value?.trim();
+
+    if (query) {
+      // Navigate to the search URL to re-run the query
+      window.location.href = `https://demo.au.dcisive.io/goto/files?query=${encodeURIComponent(query)}`;
+    } else {
+      // No search query — just reload the page
+      window.location.reload();
+    }
   }
 
   function buildTag(key, value, type) {
