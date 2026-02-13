@@ -1,15 +1,32 @@
 const tokenEl = document.getElementById('token');
 const saveBtn = document.getElementById('save');
 const statusEl = document.getElementById('status');
+const enabledEl = document.getElementById('enabled');
 
-// Load saved token on open
-chrome.storage.local.get('dcisive_token', (data) => {
+// Load saved state on open
+chrome.storage.local.get(['dcisive_token', 'dcisive_enabled'], (data) => {
   if (data.dcisive_token) {
     tokenEl.value = data.dcisive_token;
     showStatus('Token loaded', 'success');
   } else {
     showStatus('No token saved', 'info');
   }
+
+  // Default to enabled if not set
+  const isEnabled = data.dcisive_enabled !== false;
+  enabledEl.checked = isEnabled;
+});
+
+// Toggle handler
+enabledEl.addEventListener('change', () => {
+  const enabled = enabledEl.checked;
+  chrome.storage.local.set({ dcisive_enabled: enabled });
+  // Notify content scripts
+  chrome.tabs.query({ url: '*://demo.au.dcisive.io/*' }, (tabs) => {
+    tabs.forEach((tab) => {
+      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_ENABLED', enabled });
+    });
+  });
 });
 
 saveBtn.addEventListener('click', () => {

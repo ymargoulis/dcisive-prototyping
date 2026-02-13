@@ -11,6 +11,7 @@
 
   // ─── State ──────────────────────────────────────────────────────────
   let token = null;
+  let enabled = true;
   const selected = new Map(); // filename → { wrapper, filename, thumbnailGuid, fileData }
   const fileCache = new Map(); // filename → file API response
   let actionBar = null;
@@ -31,6 +32,7 @@
     badgeQueueRunning = true;
 
     while (badgeQueue.length > 0) {
+      if (!enabled) break; // stop processing if disabled
       const { filename, clickable } = badgeQueue.shift();
       await checkJobFolderStatus(filename, clickable);
       if (badgeQueue.length > 0) {
@@ -58,18 +60,36 @@
 
   // ─── Init ───────────────────────────────────────────────────────────
   async function init() {
-    // Load token from chrome.storage
-    token = await new Promise((resolve) => {
-      chrome.storage.local.get('dcisive_token', (data) => resolve(data.dcisive_token || null));
+    // Load token and enabled state from chrome.storage
+    const stored = await new Promise((resolve) => {
+      chrome.storage.local.get(['dcisive_token', 'dcisive_enabled'], (data) => resolve(data));
     });
+    token = stored.dcisive_token || null;
+    enabled = stored.dcisive_enabled !== false; // default true
 
-    // Listen for token updates from popup
+    // Listen for messages from popup
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg.type === 'TOKEN_UPDATED') {
         token = msg.token;
         console.log('[Dcisive Ext] Token updated');
+      } else if (msg.type === 'TOGGLE_ENABLED') {
+        enabled = msg.enabled;
+        console.log('[Dcisive Ext] Overlay', enabled ? 'enabled' : 'disabled');
+        if (enabled) {
+          document.body.classList.remove('dcisive-ext-disabled');
+          processCards(); // inject into any unprocessed cards
+        } else {
+          document.body.classList.add('dcisive-ext-disabled');
+          clearSelection();
+          badgeQueue.length = 0; // clear pending badge checks
+        }
       }
     });
+
+    // Apply disabled state immediately if needed
+    if (!enabled) {
+      document.body.classList.add('dcisive-ext-disabled');
+    }
 
     // Wait for gallery article to appear
     await waitForElement('article');
@@ -92,6 +112,7 @@
 
   // ─── Card Detection & Checkbox Injection ────────────────────────────
   function processCards() {
+    if (!enabled) return;
     const thumbnails = document.querySelectorAll('img[src*="content.au.dcisive.io"]');
 
     thumbnails.forEach((img) => {

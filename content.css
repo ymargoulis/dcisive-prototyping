@@ -325,3 +325,11 @@
     opacity: 1;
   }
 }
+
+/* ─── Disabled State (overlay off) ────────────────────────────── */
+body.dcisive-ext-disabled .dcisive-ext-checkbox,
+body.dcisive-ext-disabled .dcisive-ext-jf-badge,
+body.dcisive-ext-disabled .dcisive-ext-action-bar,
+body.dcisive-ext-disabled .dcisive-ext-card-selected {
+  display: none !important;
+}
