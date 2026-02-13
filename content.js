@@ -109,7 +109,43 @@
       });
 
       clickable.appendChild(checkbox);
+
+      // Async: check if file is already in a Job Folder
+      checkJobFolderStatus(filename, clickable);
     });
+  }
+
+  async function checkJobFolderStatus(filename, clickable) {
+    if (!token) return;
+
+    try {
+      let fileData = fileCache.get(filename);
+      if (!fileData) {
+        fileData = await resolveFile(filename);
+        if (fileData) fileCache.set(filename, fileData);
+      }
+      if (!fileData) return;
+
+      const jfTag = (fileData.tags || []).find(
+        (t) => t.key === 'JobFolder.Number' && t.stringValue
+      );
+
+      if (jfTag) {
+        const badge = document.createElement('div');
+        badge.className = 'dcisive-ext-jf-badge';
+        badge.title = `Job Folder: ${jfTag.stringValue}`;
+        badge.innerHTML = `
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+          </svg>
+          <span>${jfTag.stringValue}</span>
+        `;
+        clickable.appendChild(badge);
+      }
+    } catch (err) {
+      // Silently fail — badge is just a nice-to-have
+      console.debug('[Dcisive Ext] Badge check failed for', filename, err.message);
+    }
   }
 
   function toggleSelection(filename, wrapper, thumbnailGuid, checkbox) {
