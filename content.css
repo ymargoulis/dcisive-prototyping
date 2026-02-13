@@ -1,0 +1,314 @@
+/* ───────────────────────────────────────────────────────────────────
+   Dcisive Prototyping — Content Script Styles
+   All classes prefixed with .dcisive-ext- to avoid conflicts
+   ─────────────────────────────────────────────────────────────────── */
+
+/* ─── Checkbox ──────────────────────────────────────────────────── */
+.dcisive-ext-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  opacity: 0;
+  backdrop-filter: blur(4px);
+}
+
+/* Show on card hover or when selected */
+*:hover > .dcisive-ext-checkbox,
+.dcisive-ext-checkbox-selected {
+  opacity: 1 !important;
+}
+
+.dcisive-ext-checkbox:hover {
+  border-color: white;
+  background: rgba(0, 0, 0, 0.4);
+  transform: scale(1.1);
+}
+
+.dcisive-ext-checkbox svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dcisive-ext-checkbox .dcisive-ext-check {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+/* Selected state */
+.dcisive-ext-checkbox-selected {
+  background: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  opacity: 1;
+}
+
+.dcisive-ext-checkbox-selected .dcisive-ext-check {
+  opacity: 1;
+}
+
+/* Selected card ring */
+.dcisive-ext-card-selected {
+  outline: 3px solid #3b82f6 !important;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* ─── Floating Action Bar ──────────────────────────────────────── */
+.dcisive-ext-action-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  z-index: 999999;
+  background: #1e293b;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.dcisive-ext-action-bar.dcisive-ext-hidden {
+  transform: translateX(-50%) translateY(calc(100% + 40px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dcisive-ext-count {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding-right: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dcisive-ext-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ─── Buttons ──────────────────────────────────────────────────── */
+.dcisive-ext-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.dcisive-ext-btn-tag {
+  background: #3b82f6;
+  color: white;
+}
+
+.dcisive-ext-btn-tag:hover {
+  background: #2563eb;
+}
+
+.dcisive-ext-btn-jf {
+  background: #f59e0b;
+  color: white;
+}
+
+.dcisive-ext-btn-jf:hover {
+  background: #d97706;
+}
+
+.dcisive-ext-btn-clear {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dcisive-ext-btn-clear:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+/* ─── Modal ────────────────────────────────────────────────────── */
+.dcisive-ext-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  backdrop-filter: blur(2px);
+}
+
+.dcisive-ext-modal {
+  background: white;
+  border-radius: 16px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.dcisive-ext-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dcisive-ext-modal-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.dcisive-ext-modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.dcisive-ext-modal-close:hover {
+  color: #475569;
+}
+
+.dcisive-ext-modal-body {
+  padding: 20px;
+}
+
+.dcisive-ext-form-group {
+  margin-bottom: 14px;
+}
+
+.dcisive-ext-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.dcisive-ext-form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.dcisive-ext-form-group input,
+.dcisive-ext-form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  background: white;
+}
+
+.dcisive-ext-form-group input:focus,
+.dcisive-ext-form-group select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.dcisive-ext-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.dcisive-ext-btn-cancel {
+  background: white;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.dcisive-ext-btn-cancel:hover {
+  background: #f1f5f9;
+}
+
+.dcisive-ext-btn-submit {
+  background: #3b82f6;
+  color: white;
+}
+
+.dcisive-ext-btn-submit:hover {
+  background: #2563eb;
+}
+
+.dcisive-ext-btn-submit:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* ─── Toast ────────────────────────────────────────────────────── */
+.dcisive-ext-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 99999999;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  animation: dcisive-ext-toast-in 0.3s ease;
+  max-width: 400px;
+}
+
+.dcisive-ext-toast-success {
+  background: #16a34a;
+  color: white;
+}
+
+.dcisive-ext-toast-error {
+  background: #dc2626;
+  color: white;
+}
+
+.dcisive-ext-toast-info {
+  background: #1e293b;
+  color: white;
+}
+
+@keyframes dcisive-ext-toast-in {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

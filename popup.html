@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <h1>Dcisive Prototyping</h1>
+    <p class="subtitle">Multi-select &amp; bulk tagging overlay</p>
+
+    <div class="field">
+      <label for="token">API Token</label>
+      <textarea id="token" rows="3" placeholder="Paste your Dcisive access token here..."></textarea>
+      <p class="hint">Get it from dcisive-viewer: <code>sessionStorage.getItem('dcisive_access_token')</code></p>
+    </div>
+
+    <button id="save">Save Token</button>
+    <div id="status" class="status"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
