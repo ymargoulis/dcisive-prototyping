@@ -72,7 +72,7 @@
   align-items: center;
   gap: 3px;
   padding: 2px 7px 2px 5px;
-  background: rgba(245, 158, 11, 0.9);
+  background: rgba(20, 71, 230, 0.9);
   color: white;
   font-size: 10px;
   font-weight: 600;
@@ -140,12 +140,12 @@
 }
 
 .dcisive-ext-btn-jf {
-  background: #f59e0b;
+  background: #1447e6;
   color: white;
 }
 
 .dcisive-ext-btn-jf:hover {
-  background: #d97706;
+  background: #1038c2;
 }
 
 .dcisive-ext-btn-clear {
