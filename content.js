@@ -16,6 +16,7 @@
   const fileCache = new Map(); // filename → file API response
   let actionBar = null;
   let observer = null;
+  let observerTimer = null;
 
   // ─── Rate-limited badge check queue ────────────────────────────────
   const badgeQueue = [];
@@ -102,10 +103,31 @@
     // Process existing cards
     processCards();
 
-    // Observe for new cards (infinite scroll)
+    // Observe for new/changed cards (infinite scroll + Blazor re-renders)
     const article = document.querySelector('article');
     if (article) {
-      observer = new MutationObserver(() => processCards());
+      observer = new MutationObserver((mutations) => {
+        // Check if cards were removed (indicates Blazor re-rendered the gallery)
+        const hadRemovals = mutations.some((m) => m.removedNodes.length > 0);
+
+        if (hadRemovals) {
+          // Blazor replaced gallery content — clear stale state
+          fileCache.clear();
+          document.querySelectorAll('[data-dcisive-ext]').forEach((el) => {
+            delete el.dataset.dcisiveExt;
+          });
+          document.querySelectorAll('.dcisive-ext-jf-badge').forEach((b) => b.remove());
+          document.querySelectorAll('.dcisive-ext-checkbox').forEach((cb) => {
+            if (!cb.closest('[data-dcisive-ext]')) cb.remove();
+          });
+          selected.clear();
+          updateActionBar();
+        }
+
+        // Debounce to avoid excessive re-processing during Blazor render flurry
+        clearTimeout(observerTimer);
+        observerTimer = setTimeout(() => processCards(), 200);
+      });
       observer.observe(article, { childList: true, subtree: true });
     }
   }
@@ -177,6 +199,9 @@
       );
 
       if (jfTag) {
+        // Remove any existing badge before adding a new one
+        clickable.querySelectorAll('.dcisive-ext-jf-badge').forEach((b) => b.remove());
+
         const badge = document.createElement('div');
         badge.className = 'dcisive-ext-jf-badge';
         badge.title = `Job Folder: ${jfTag.stringValue}`;
