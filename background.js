@@ -25,8 +25,8 @@ async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
     const resp = await fetch(url, options);
 
     if (resp.status === 429 && attempt < retries) {
-      // Exponential backoff: 1s, 2s, 4s
-      const delay = Math.pow(2, attempt) * 1000;
+      // Exponential backoff: 2s, 4s, 8s
+      const delay = Math.pow(2, attempt + 1) * 1000;
       console.log(`[Dcisive Ext BG] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
       await new Promise((r) => setTimeout(r, delay));
       continue;

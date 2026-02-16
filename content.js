@@ -21,7 +21,7 @@
   // ─── Rate-limited badge check queue ────────────────────────────────
   const badgeQueue = [];
   let badgeQueueRunning = false;
-  const BADGE_DELAY_MS = 300; // delay between API calls to avoid 429
+  const BADGE_DELAY_MS = 600; // delay between API calls to avoid 429
 
   function enqueueBadgeCheck(filename, clickable) {
     badgeQueue.push({ filename, clickable });
@@ -446,9 +446,26 @@
   }
 
   // ─── API Calls (via background service worker) ─────────────────────
+
+  /**
+   * Build a shorter search query from a filename.
+   * Long filenames with GUIDs (e.g. "JF101_PPE_Checklist-fd6a2352d72f4edb8409a572f0357006.pdf")
+   * may not search well. Extract a meaningful prefix before any GUID-like segment.
+   */
+  function buildSearchQuery(filename) {
+    // Strip file extension
+    let query = filename.replace(/\.[^.]+$/, '');
+    // If the name contains a GUID-like hex segment (32+ hex chars), strip it
+    query = query.replace(/[-_]?[a-f0-9]{24,}$/i, '');
+    // If still very long, take just the first 60 chars
+    if (query.length > 60) query = query.substring(0, 60);
+    return query || filename;
+  }
+
   async function resolveFile(filename) {
     try {
-      const result = await apiCall('searchFiles', { filename, token });
+      const searchQuery = buildSearchQuery(filename);
+      const result = await apiCall('searchFiles', { filename: searchQuery, token });
       if (result.expired) {
         showToast('Token expired. Please update it in the extension popup.', 'error');
         return null;
@@ -462,6 +479,8 @@
         // Partial match: the gallery truncates long names with "..."
         files.find((f) => (f.filename || '').startsWith(filename.replace(/\.{3}$/, ''))) ||
         files.find((f) => (f.title || '').startsWith(filename.replace(/\.{3}$/, ''))) ||
+        // Match if the file's filename starts with our search query
+        files.find((f) => (f.filename || '').startsWith(searchQuery)) ||
         null
       );
     } catch (err) {
