@@ -17,6 +17,14 @@
   let actionBar = null;
   let observer = null;
   let observerTimer = null;
+  let mutating = false; // guard flag to prevent observer feedback loop
+
+  // Wrap DOM modifications so the MutationObserver ignores our own changes
+  function ownMutation(fn) {
+    mutating = true;
+    fn();
+    mutating = false;
+  }
 
   // ─── Rate-limited badge check queue ────────────────────────────────
   const badgeQueue = [];
@@ -107,26 +115,45 @@
     const article = document.querySelector('article');
     if (article) {
       observer = new MutationObserver((mutations) => {
-        // Check if cards were removed (indicates Blazor re-rendered the gallery)
-        const hadRemovals = mutations.some((m) => m.removedNodes.length > 0);
+        if (mutating) return; // Ignore our own DOM changes
 
-        if (hadRemovals) {
-          // Blazor replaced gallery content — clear stale state
-          fileCache.clear();
-          document.querySelectorAll('[data-dcisive-ext]').forEach((el) => {
-            delete el.dataset.dcisiveExt;
-          });
-          document.querySelectorAll('.dcisive-ext-jf-badge').forEach((b) => b.remove());
-          document.querySelectorAll('.dcisive-ext-checkbox').forEach((cb) => {
-            if (!cb.closest('[data-dcisive-ext]')) cb.remove();
-          });
-          selected.clear();
-          updateActionBar();
+        // Only react to real Blazor changes — look for non-extension nodes
+        let blazorChanged = false;
+        outer: for (const m of mutations) {
+          for (const node of m.addedNodes) {
+            if (node.nodeType === 1 && (node.tagName === 'IMG' || node.querySelector?.('img'))) {
+              blazorChanged = true;
+              break outer;
+            }
+          }
+          for (const node of m.removedNodes) {
+            if (node.nodeType === 1 &&
+                !node.classList?.contains('dcisive-ext-jf-badge') &&
+                !node.classList?.contains('dcisive-ext-checkbox') &&
+                (node.tagName === 'IMG' || node.tagName === 'DIV' || node.querySelector?.('img'))) {
+              blazorChanged = true;
+              break outer;
+            }
+          }
         }
 
-        // Debounce to avoid excessive re-processing during Blazor render flurry
+        if (!blazorChanged) return;
+
+        // Blazor actually changed gallery content — reset and re-process
+        fileCache.clear();
+        badgeQueue.length = 0;
+        selected.clear();
+        updateActionBar();
+
         clearTimeout(observerTimer);
-        observerTimer = setTimeout(() => processCards(), 200);
+        observerTimer = setTimeout(() => {
+          ownMutation(() => {
+            document.querySelectorAll('[data-dcisive-ext]').forEach((el) => delete el.dataset.dcisiveExt);
+            document.querySelectorAll('.dcisive-ext-jf-badge').forEach((b) => b.remove());
+            document.querySelectorAll('.dcisive-ext-checkbox').forEach((cb) => cb.remove());
+          });
+          processCards();
+        }, 300);
       });
       observer.observe(article, { childList: true, subtree: true });
     }
@@ -176,7 +203,7 @@
         toggleSelection(filename, wrapper, thumbnailGuid, checkbox);
       });
 
-      clickable.appendChild(checkbox);
+      ownMutation(() => clickable.appendChild(checkbox));
 
       // Queue badge check (rate-limited to avoid 429)
       enqueueBadgeCheck(filename, clickable);
@@ -199,9 +226,6 @@
       );
 
       if (jfTag) {
-        // Remove any existing badge before adding a new one
-        clickable.querySelectorAll('.dcisive-ext-jf-badge').forEach((b) => b.remove());
-
         const badge = document.createElement('div');
         badge.className = 'dcisive-ext-jf-badge';
         badge.title = `Job Folder: ${jfTag.stringValue}`;
@@ -211,7 +235,11 @@
           </svg>
           <span>${jfTag.stringValue}</span>
         `;
-        clickable.appendChild(badge);
+        ownMutation(() => {
+          // Remove any existing badge before adding a new one
+          clickable.querySelectorAll('.dcisive-ext-jf-badge').forEach((b) => b.remove());
+          clickable.appendChild(badge);
+        });
       }
     } catch (err) {
       // Silently fail — badge is just a nice-to-have
@@ -472,15 +500,13 @@
       }
       const files = result.files || [];
 
-      // Exact match by filename or title
+      // Exact match by filename or title only
       return (
         files.find((f) => f.filename === filename) ||
         files.find((f) => f.title === filename) ||
         // Partial match: the gallery truncates long names with "..."
         files.find((f) => (f.filename || '').startsWith(filename.replace(/\.{3}$/, ''))) ||
         files.find((f) => (f.title || '').startsWith(filename.replace(/\.{3}$/, ''))) ||
-        // Match if the file's filename starts with our search query
-        files.find((f) => (f.filename || '').startsWith(searchQuery)) ||
         null
       );
     } catch (err) {
